@@ -1,8 +1,6 @@
 
 # Satisfier
 
-## Overview
-
 This project is a **Satisfiability Checker** that works with formulas in **Conjunctive Normal Form (CNF)**. It allows the user to input CNF formulas, stores them, and checks their satisfiability using the **DPLL algorithm** (Davis-Putnam-Logemann-Loveland). The formulas can include both literals and previously stored formulas, which are treated as variables within the CNF. The program supports unit propagation, pure literal elimination, and branching for DPLL.
 
 ### Features:
