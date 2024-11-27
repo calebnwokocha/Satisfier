@@ -114,7 +114,6 @@ func assign(cnf CNF, variable int, value bool) CNF {
 }
 
 // DPLL implements the main algorithm
-// DPLL implements the main algorithm
 func DPLL(cnf CNF, assignment map[int]bool) (bool, map[int]bool) {
 	// Apply unit propagation
 	cnf, ok := UnitPropagation(cnf, assignment)
@@ -156,19 +155,6 @@ func abs(x int) int {
 		return -x
 	}
 	return x
-}
-
-// CompleteAssignment ensures all variables have an assignment
-func CompleteAssignment(cnf CNF, assignment map[int]bool) map[int]bool {
-	for _, clause := range cnf {
-		for _, literal := range clause {
-			variable := abs(literal)
-			if _, exists := assignment[variable]; !exists {
-				assignment[variable] = true // Default arbitrary assignment
-			}
-		}
-	}
-	return assignment
 }
 
 // Parse CNF string and handle stored formulas
