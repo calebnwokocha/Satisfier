@@ -19,15 +19,15 @@ To run this project, you need:
 
 1. Clone this repository to your local machine:
    ```bash
-   git clone https://github.com/yourusername/formula-satisfiability-checker.git
-   cd formula-satisfiability-checker
+   git clone https://github.com/calebnwokocha/Satisfier.git
+   cd Satisfier
    ```
 
 2. Install dependencies (if any).
 
 3. Run the project:
    ```bash
-   go run main.go
+   go run satisfier.go
    ```
 
 ## How to Use
