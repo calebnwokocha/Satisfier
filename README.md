@@ -168,7 +168,3 @@ To run the tests, use the following command:
 ```bash
 go test -v
 ```
-
-## Conclusion
-
-This project implements a satisfiability checker for formulas in Conjunctive Normal Form (CNF). The checker uses the DPLL algorithm to determine whether the formula is satisfiable. It supports the substitution of stored formulas as literals and includes unit tests to verify the correctness of the substitution logic.
