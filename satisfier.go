@@ -211,6 +211,27 @@ func parseCNF(input string, varMap map[string]int, store *FormulaStore) (CNF, ma
 	return cnf, reverseMap
 }
 
+// Apply pre-assigned values to the CNF before DPLL execution
+func applyPreAssignments(cnf CNF, assignment map[int]bool) CNF {
+	for variable, value := range assignment {
+		cnf = assign(cnf, variable, value)
+	}
+	return cnf
+}
+
+// Helper function: check if a variable exists in the CNF formula
+func containsVariable(cnf CNF, varName string, reverseMap map[int]string) bool {
+	for _, clause := range cnf {
+		for _, lit := range clause {
+			if reverseMap[abs(lit)] == varName {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// Main function
 func main() {
 	const storeFile = "formulas.json"
 	store, err := loadStore(storeFile)
@@ -220,7 +241,7 @@ func main() {
 	}
 
 	reader := bufio.NewReader(os.Stdin)
-	fmt.Println("Satisfier checks satisfiability of a formula in Conjuctive Norm Form (CNF).")
+	fmt.Println("Satisfier checks satisfiability of a formula in Conjunctive Normal Form (CNF).")
 
 	for {
 		fmt.Print("Enter 1 to check a new formula, 2 to view stored formulas, or 3 to exit: ")
@@ -233,44 +254,78 @@ func main() {
 			formulaName, _ := reader.ReadString('\n')
 			formulaName = strings.TrimSpace(formulaName)
 
-			fmt.Print("Enter CNF of " + formulaName + " e.g., (\"Rainy\" \\/ \"Sunny\") " +
-				"/\\ (\"Cold\" \\/ !\"Hot\") /\\ (\"Windy\" \\/ !\"Clear\"):\n")
+			fmt.Print("Enter CNF of " + formulaName + " e.g., (\"R\" \\/ \"S\") " +
+				"/\\ (\"C\" \\/ !\"H\") /\\ (\"W\" \\/ !\"C\"):\n")
 			input, _ := reader.ReadString('\n')
 			input = strings.TrimSpace(input)
 
-			varMap := make(map[string]int)
+			fmt.Print("Enter initial assignments (e.g., R := true, S := false) or leave blank: ")
+			preAssignmentsInput, _ := reader.ReadString('\n')
+			preAssignmentsInput = strings.TrimSpace(preAssignmentsInput)
+
+			varMap := make(map[string]int) // Initialize varMap for variable mapping
 			cnf, reverseMap := parseCNF(input, varMap, store)
-			assignment := make(map[int]bool)
+
+			preAssignments := make(map[int]bool)
+			if preAssignmentsInput != "" {
+				assignments := strings.Split(preAssignmentsInput, ",")
+				for _, assign := range assignments {
+					parts := strings.Split(assign, ":=")
+					if len(parts) != 2 {
+						fmt.Printf("Invalid assignment format: %s. Expected 'Var := Value'.\n", assign)
+						continue
+					}
+					varName := strings.TrimSpace(parts[0])
+					varValue := strings.TrimSpace(parts[1]) == "true"
+
+					// Here we check if the variable is part of the CNF
+					if varIndex, exists := varMap[varName]; exists {
+						preAssignments[varIndex] = varValue
+					} else {
+						// Check if the variable is part of any subformula
+						if containsVariable(cnf, varName, reverseMap) {
+							preAssignments[varMap[varName]] = varValue
+						} else {
+							fmt.Printf("Warning: Variable %s not found in the formula.\n", varName)
+						}
+					}
+				}
+			}
+
+			// Apply user-provided assignments
+			cnf = applyPreAssignments(cnf, preAssignments)
+			assignment := preAssignments
 
 			if satisfiable, result := DPLL(cnf, assignment); satisfiable {
-				fmt.Println("SATISFIABLE")
+				fmt.Println(formulaName + " is SATISFIABLE")
 				store.Formulas[formulaName] = input
 				store.Assignments[formulaName] = map[string]bool{}
 				for lit, val := range result {
-					if val {
-						store.Assignments[formulaName][reverseMap[abs(lit)]] = true
-					} else {
-						store.Assignments[formulaName][reverseMap[abs(lit)]] = false
-					}
+					store.Assignments[formulaName][reverseMap[abs(lit)]] = val
 				}
+				fmt.Println("Assignments for " + formulaName + ":")
 				for lit, val := range store.Assignments[formulaName] {
 					fmt.Printf("%s : %v\n", lit, val)
 				}
 			} else {
-				fmt.Println("UNSATISFIABLE")
+				fmt.Println(formulaName + " is UNSATISFIABLE")
 			}
-			saveStore(storeFile, store)
+
+			err := saveStore(storeFile, store)
+			if err != nil {
+				fmt.Println("Error saving store:", err)
+			}
 
 		case "2":
 			fmt.Println("Stored formulas:")
 			if len(store.Formulas) == 0 {
-				fmt.Println("No formula stored")
+				fmt.Println("No formula stored.")
 			} else {
 				for name, formula := range store.Formulas {
-					fmt.Printf("%s = %s\n", name, formula)
+					fmt.Printf("%s := %s\n", name, formula)
 					assignment := store.Assignments[name]
 					for lit, val := range assignment {
-						fmt.Printf("  %s = %v\n", lit, val)
+						fmt.Printf("  %s := %v\n", lit, val)
 					}
 				}
 			}
