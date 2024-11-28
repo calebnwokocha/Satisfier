@@ -276,7 +276,7 @@ func main() {
 			input, _ := reader.ReadString('\n')
 			input = strings.TrimSpace(input)
 
-			fmt.Print("Enter initial assignments (e.g., R := true, S := false) or leave blank: ")
+			fmt.Print("Enter initial assignments (e.g., \"R\" := true, \"S\" := false) or leave blank: ")
 			preAssignmentsInput, _ := reader.ReadString('\n')
 			preAssignmentsInput = strings.TrimSpace(preAssignmentsInput)
 
@@ -303,7 +303,7 @@ func main() {
 						if containsVariable(cnf, varName, reverseMap) {
 							preAssignments[varMap[varName]] = varValue
 						} else {
-							fmt.Printf("Warning: Variable %s not found in the formula.\n", varName)
+							fmt.Printf("Warning: Variable %s not found in the "+formulaName+"\n", varName)
 						}
 					}
 				}
