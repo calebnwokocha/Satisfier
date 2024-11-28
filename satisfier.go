@@ -271,8 +271,9 @@ func main() {
 			formulaName, _ := reader.ReadString('\n')
 			formulaName = strings.TrimSpace(formulaName)
 
-			fmt.Print("Enter CNF of " + formulaName + " e.g., (\"R\" \\/ \"S\") " +
-				"/\\ (\"C\" \\/ !\"H\") /\\ (\"W\" \\/ !\"C\"):\n")
+			fmt.Printf("Enter CNF of \"%s\" e.g., (\"R\" \\/ \"S\") /\\ (\"C\" \\/ !\"H\") "+
+				"/\\ (\"W\" \\/ !\"C\"):\n", formulaName)
+
 			input, _ := reader.ReadString('\n')
 			input = strings.TrimSpace(input)
 
@@ -303,7 +304,7 @@ func main() {
 						if containsVariable(cnf, varName, reverseMap) {
 							preAssignments[varMap[varName]] = varValue
 						} else {
-							fmt.Printf("Warning: Variable %s not found in the "+formulaName+"\n", varName)
+							fmt.Printf("Warning: Variable %s not found in \"%s\"\n", varName, formulaName)
 						}
 					}
 				}
@@ -314,18 +315,18 @@ func main() {
 			assignment := preAssignments
 
 			if satisfiable, result := iterativeDPLL(cnf, assignment); satisfiable {
-				fmt.Println(formulaName + " is SATISFIABLE")
+				fmt.Printf("\"%s\" is SATISFIABLE.\n", formulaName)
 				store.Formulas[formulaName] = input
 				store.Assignments[formulaName] = map[string]bool{}
 				for lit, val := range result {
 					store.Assignments[formulaName][reverseMap[abs(lit)]] = val
 				}
-				fmt.Println("Assignments for " + formulaName + ":")
+				fmt.Printf("Assignments for \"%s\":\n", formulaName)
 				for lit, val := range store.Assignments[formulaName] {
 					fmt.Printf("%s : %v\n", lit, val)
 				}
 			} else {
-				fmt.Println(formulaName + " is UNSATISFIABLE")
+				fmt.Printf("\"%s\" is UNSATISFIABLE.\n", formulaName)
 			}
 
 			err := saveStore(storeFile, store)
@@ -339,10 +340,10 @@ func main() {
 				fmt.Println("No formula stored.")
 			} else {
 				for name, formula := range store.Formulas {
-					fmt.Printf("%s := %s\n", name, formula)
+					fmt.Printf("\"%s\" := %s\n", name, formula)
 					assignment := store.Assignments[name]
 					for lit, val := range assignment {
-						fmt.Printf("  %s := %v\n", lit, val)
+						fmt.Printf("%s := %v\n", lit, val)
 					}
 				}
 			}
