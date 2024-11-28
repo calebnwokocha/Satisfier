@@ -1,7 +1,3 @@
-/***********************************************************************************
-Original Author: Caleb Princewill Nwokocha
-***********************************************************************************/
-
 package main
 
 import (
@@ -12,8 +8,8 @@ import (
 	"strings"
 )
 
-type Clause []int // A clause is a slice of integers representing literals
-type CNF []Clause // CNF is a conjunction of clauses
+type Clause []int
+type CNF []Clause
 
 type FormulaStore struct {
 	Formulas    map[string]string          `json:"formulas"`
@@ -46,12 +42,11 @@ func saveStore(filename string, store *FormulaStore) error {
 	return json.NewEncoder(file).Encode(store)
 }
 
-// UnitPropagation simplifies the CNF by assigning values for unit clauses
 func UnitPropagation(cnf CNF, assignment map[int]bool) (CNF, bool) {
 	for {
 		unitFound := false
 		for _, clause := range cnf {
-			if len(clause) == 1 { // Found a unit clause
+			if len(clause) == 1 {
 				unit := clause[0]
 				unitFound = true
 				value := unit > 0
@@ -67,13 +62,12 @@ func UnitPropagation(cnf CNF, assignment map[int]bool) (CNF, bool) {
 	}
 	for _, clause := range cnf {
 		if len(clause) == 0 {
-			return cnf, false // Conflict detected
+			return cnf, false
 		}
 	}
 	return cnf, true
 }
 
-// PureLiteralElimination simplifies CNF by assigning values for pure literals
 func PureLiteralElimination(cnf CNF, assignment map[int]bool) CNF {
 	literalCount := make(map[int]int)
 	for _, clause := range cnf {
@@ -82,7 +76,7 @@ func PureLiteralElimination(cnf CNF, assignment map[int]bool) CNF {
 		}
 	}
 	for literal, count := range literalCount {
-		if count > 0 && literalCount[-literal] == 0 { // Pure literal found
+		if count > 0 && literalCount[-literal] == 0 {
 			value := literal > 0
 			variable := abs(literal)
 			assignment[variable] = value
@@ -92,7 +86,6 @@ func PureLiteralElimination(cnf CNF, assignment map[int]bool) CNF {
 	return cnf
 }
 
-// Assign simplifies the CNF given a variable assignment
 func assign(cnf CNF, variable int, value bool) CNF {
 	newCNF := CNF{}
 	for _, clause := range cnf {
@@ -113,40 +106,64 @@ func assign(cnf CNF, variable int, value bool) CNF {
 	return newCNF
 }
 
-// DPLL implements the main algorithm
-func DPLL(cnf CNF, assignment map[int]bool) (bool, map[int]bool) {
-	// Apply unit propagation
-	cnf, ok := UnitPropagation(cnf, assignment)
-	if !ok {
-		return false, assignment // Conflict detected
+func iterativeDPLL(cnf CNF, assignment map[int]bool) (bool, map[int]bool) {
+	stack := []struct {
+		cnf        CNF
+		assignment map[int]bool
+	}{
+		{cnf, copyAssignment(assignment)},
 	}
 
-	// Apply pure literal elimination
-	cnf = PureLiteralElimination(cnf, assignment)
+	for len(stack) > 0 {
+		state := stack[len(stack)-1]
+		stack = stack[:len(stack)-1]
 
-	// Check if all clauses are satisfied
-	if len(cnf) == 0 {
-		return true, assignment // Satisfiable
-	}
-
-	// Select the next variable to assign (heuristic: first literal in the first clause)
-	var variable int
-	for _, clause := range cnf {
-		if len(clause) > 0 {
-			variable = abs(clause[0])
-			break
+		var ok bool
+		state.cnf, ok = UnitPropagation(state.cnf, state.assignment)
+		if !ok {
+			continue
 		}
+
+		state.cnf = PureLiteralElimination(state.cnf, state.assignment)
+
+		if len(state.cnf) == 0 {
+			return true, state.assignment
+		}
+
+		var variable int
+		for _, clause := range state.cnf {
+			if len(clause) > 0 {
+				variable = abs(clause[0])
+				break
+			}
+		}
+
+		stack = append(stack, struct {
+			cnf        CNF
+			assignment map[int]bool
+		}{
+			assign(state.cnf, variable, false),
+			copyAssignment(state.assignment),
+		})
+
+		stack = append(stack, struct {
+			cnf        CNF
+			assignment map[int]bool
+		}{
+			assign(state.cnf, variable, true),
+			copyAssignment(state.assignment),
+		})
 	}
 
-	// Try assigning true
-	assignment[variable] = true
-	if satisfiable, result := DPLL(assign(cnf, variable, true), assignment); satisfiable {
-		return true, result
-	}
+	return false, assignment
+}
 
-	// Backtrack and try assigning false
-	assignment[variable] = false
-	return DPLL(assign(cnf, variable, false), assignment)
+func copyAssignment(original map[int]bool) map[int]bool {
+	copy := make(map[int]bool)
+	for key, value := range original {
+		copy[key] = value
+	}
+	return copy
 }
 
 // Helper function: absolute value
@@ -296,7 +313,7 @@ func main() {
 			cnf = applyPreAssignments(cnf, preAssignments)
 			assignment := preAssignments
 
-			if satisfiable, result := DPLL(cnf, assignment); satisfiable {
+			if satisfiable, result := iterativeDPLL(cnf, assignment); satisfiable {
 				fmt.Println(formulaName + " is SATISFIABLE")
 				store.Formulas[formulaName] = input
 				store.Assignments[formulaName] = map[string]bool{}
