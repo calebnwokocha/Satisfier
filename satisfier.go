@@ -178,6 +178,7 @@ func abs(x int) int {
 func parseCNF(input string, varMap map[string]int, store *FormulaStore) (CNF, map[int]string) {
 	reverseMap := make(map[int]string)
 	counter := 1
+
 	assignVar := func(v string) int {
 		if _, ok := varMap[v]; !ok {
 			varMap[v] = counter
@@ -188,42 +189,83 @@ func parseCNF(input string, varMap map[string]int, store *FormulaStore) (CNF, ma
 	}
 
 	var cnf CNF
-	input = strings.ReplaceAll(input, " ", "")
-	clauses := strings.Split(input, "/\\")
-	for _, clauseStr := range clauses {
-		var clause Clause
-		literals := strings.Split(strings.Trim(clauseStr, "()"), "\\/")
-		for _, litStr := range literals {
-			isNeg := strings.HasPrefix(litStr, "!")
-			litStr = strings.Trim(litStr, "!")
+	stack := []string{}
+	currentClause := Clause{}
+	input = strings.ReplaceAll(input, " ", "") // Remove spaces
 
-			if storedFormula, exists := store.Formulas[litStr]; exists {
-				// Handle stored formula as a literal
+	for i := 0; i < len(input); {
+		switch input[i] {
+		case '(':
+			// Push current clause to stack and start a new one
+			stack = append(stack, "(")
+			i++
+		case ')':
+			// Process completed clause
+			if len(currentClause) > 0 {
+				cnf = append(cnf, currentClause)
+				currentClause = Clause{}
+			}
+			stack = stack[:len(stack)-1] // Pop stack
+			i++
+		case '/':
+			if i+1 < len(input) && input[i+1] == '\\' { // Detect "/\"
+				if len(currentClause) > 0 {
+					cnf = append(cnf, currentClause)
+					currentClause = Clause{}
+				}
+				i += 2
+			} else {
+				i++
+			}
+		case '\\':
+			if i+1 < len(input) && input[i+1] == '/' { // Detect "\/"
+				i += 2
+			} else {
+				i++
+			}
+		case '!':
+			// Negate the next literal
+			isNeg := true
+			i++
+			start := i
+			for i < len(input) && (input[i] != ')' && input[i] != '\\' && input[i] != '/') {
+				i++
+			}
+			literal := input[start:i]
+			if storedFormula, exists := store.Formulas[literal]; exists {
 				subCNF, _ := parseCNF(storedFormula, varMap, store)
-				// If negation, negate the subformula's clauses
-				if isNeg {
-					for _, subClause := range subCNF {
-						for i := range subClause {
-							subClause[i] = -subClause[i]
-						}
-						cnf = append(cnf, subClause)
+				for _, subClause := range subCNF {
+					for j := range subClause {
+						subClause[j] = -subClause[j]
 					}
-				} else {
-					// If not negated, add the subformula's clauses
-					cnf = append(cnf, subCNF...)
+					cnf = append(cnf, subClause)
 				}
 			} else {
-				// Handle regular variable literals
-				lit := assignVar(litStr)
+				lit := assignVar(literal)
 				if isNeg {
 					lit = -lit
 				}
-				clause = append(clause, lit)
+				currentClause = append(currentClause, lit)
+			}
+		default:
+			start := i
+			for i < len(input) && (input[i] != ')' && input[i] != '\\' && input[i] != '/') {
+				i++
+			}
+			literal := input[start:i]
+			if storedFormula, exists := store.Formulas[literal]; exists {
+				subCNF, _ := parseCNF(storedFormula, varMap, store)
+				cnf = append(cnf, subCNF...)
+			} else {
+				lit := assignVar(literal)
+				currentClause = append(currentClause, lit)
 			}
 		}
-		if len(clause) > 0 {
-			cnf = append(cnf, clause)
-		}
+	}
+
+	// Append the last processed clause
+	if len(currentClause) > 0 {
+		cnf = append(cnf, currentClause)
 	}
 	return cnf, reverseMap
 }
