@@ -195,19 +195,20 @@ func parseCNF(input string, varMap map[string]int, store *FormulaStore) (CNF, ma
 	currentClause := Clause{}
 	input = strings.ReplaceAll(input, " ", "") // Remove spaces
 
-	for i := 0; i < len(input); {
+	i := 0
+	for i < len(input) {
 		switch input[i] {
 		case '(':
-			// Push current clause to stack and start a new one
+			// Start a new subexpression
 			stack = append(stack, "(")
 			i++
 		case ')':
-			// Process completed clause
+			// End current clause, append to CNF
 			if len(currentClause) > 0 {
 				cnf = append(cnf, currentClause)
 				currentClause = Clause{}
 			}
-			stack = stack[:len(stack)-1] // Pop stack
+			stack = stack[:len(stack)-1] // Pop '('
 			i++
 		case '/':
 			if i+1 < len(input) && input[i+1] == '\\' { // Detect "/\"
@@ -226,7 +227,7 @@ func parseCNF(input string, varMap map[string]int, store *FormulaStore) (CNF, ma
 				i++
 			}
 		case '!':
-			// Negate the next literal
+			// Handle negation of the next literal
 			isNeg := true
 			i++
 			start := i
@@ -234,14 +235,12 @@ func parseCNF(input string, varMap map[string]int, store *FormulaStore) (CNF, ma
 				i++
 			}
 			literal := input[start:i]
+
+			// Substitute stored formulas as literals
 			if storedFormula, exists := store.Formulas[literal]; exists {
-				subCNF, _ := parseCNF(storedFormula, varMap, store)
-				for _, subClause := range subCNF {
-					for j := range subClause {
-						subClause[j] = -subClause[j]
-					}
-					cnf = append(cnf, subClause)
-				}
+				stack = append(stack, fmt.Sprintf("!%s", literal))  // Push negation for post-processing
+				input = input[:start-1] + storedFormula + input[i:] // Replace with actual formula
+				i = start - 1                                       // Restart parsing from the substituted formula
 			} else {
 				lit := assignVar(literal)
 				if isNeg {
@@ -250,14 +249,18 @@ func parseCNF(input string, varMap map[string]int, store *FormulaStore) (CNF, ma
 				currentClause = append(currentClause, lit)
 			}
 		default:
+			// Parse literals or substitute stored formulas
 			start := i
 			for i < len(input) && (input[i] != ')' && input[i] != '\\' && input[i] != '/') {
 				i++
 			}
 			literal := input[start:i]
+
+			// Substitute stored formulas as literals
 			if storedFormula, exists := store.Formulas[literal]; exists {
-				subCNF, _ := parseCNF(storedFormula, varMap, store)
-				cnf = append(cnf, subCNF...)
+				stack = append(stack, literal)
+				input = input[:start] + storedFormula + input[i:] // Replace with the stored formula
+				i = start                                         // Restart parsing for substituted formula
 			} else {
 				lit := assignVar(literal)
 				currentClause = append(currentClause, lit)
@@ -265,10 +268,11 @@ func parseCNF(input string, varMap map[string]int, store *FormulaStore) (CNF, ma
 		}
 	}
 
-	// Append the last processed clause
+	// Add the final clause to CNF
 	if len(currentClause) > 0 {
 		cnf = append(cnf, currentClause)
 	}
+
 	return cnf, reverseMap
 }
 
@@ -380,7 +384,7 @@ func main() {
 
 				fmt.Printf("Assignments for \"%s\":\n", formulaName)
 				for lit, val := range store.Assignments[formulaName] {
-					fmt.Printf("%s : %v\n", lit, val)
+					fmt.Printf("%s := %v\n", lit, val)
 				}
 
 			} else {
