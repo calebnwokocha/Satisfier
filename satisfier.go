@@ -14,6 +14,7 @@ type CNF []Clause
 type FormulaStore struct {
 	Formulas    map[string]string          `json:"formulas"`
 	Assignments map[string]map[string]bool `json:"assignments"`
+	Comments    map[string]string          `json:"comments"` // New field for comments
 }
 
 func loadStore(filename string) (*FormulaStore, error) {
@@ -22,7 +23,8 @@ func loadStore(filename string) (*FormulaStore, error) {
 		if os.IsNotExist(err) {
 			return &FormulaStore{
 				Formulas:    make(map[string]string),
-				Assignments: make(map[string]map[string]bool),
+				Assignments: make(map[string]map[string]bool), // Ensure this is initialized
+				Comments:    make(map[string]string),          // Initialize comments map
 			}, nil
 		}
 		return nil, err
@@ -319,9 +321,14 @@ func main() {
 			input, _ := reader.ReadString('\n')
 			input = strings.TrimSpace(input)
 
-			fmt.Print("Enter initial assignments (e.g., \"R\" := true, \"S\" := false) or leave blank: ")
+			fmt.Printf("Enter initial assignments (e.g., \"R\" := true, \"S\" := false) or leave blank: ")
 			preAssignmentsInput, _ := reader.ReadString('\n')
 			preAssignmentsInput = strings.TrimSpace(preAssignmentsInput)
+
+			// New prompt for comment
+			fmt.Printf("Enter a comment for \"%s\" (optional, leave blank if no comment): ", formulaName)
+			comment, _ := reader.ReadString('\n')
+			comment = strings.TrimSpace(comment)
 
 			varMap := make(map[string]int) // Initialize varMap for variable mapping
 			cnf, reverseMap := parseCNF(input, varMap, store)
@@ -363,10 +370,19 @@ func main() {
 				for lit, val := range result {
 					store.Assignments[formulaName][reverseMap[abs(lit)]] = val
 				}
+
+				// Store the comment with the formula
+				if comment != "" {
+					store.Comments[formulaName] = comment
+				} else {
+					store.Comments[formulaName] = "N/A"
+				}
+
 				fmt.Printf("Assignments for \"%s\":\n", formulaName)
 				for lit, val := range store.Assignments[formulaName] {
 					fmt.Printf("%s : %v\n", lit, val)
 				}
+
 			} else {
 				fmt.Printf("\"%s\" is UNSATISFIABLE.\n", formulaName)
 			}
@@ -386,6 +402,10 @@ func main() {
 					assignment := store.Assignments[name]
 					for lit, val := range assignment {
 						fmt.Printf("%s := %v\n", lit, val)
+					}
+					// Display the comment if exists
+					if comment, exists := store.Comments[name]; exists && comment != "" {
+						fmt.Printf("Comment: %s\n", comment)
 					}
 				}
 			}
